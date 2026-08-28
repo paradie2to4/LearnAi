@@ -25,8 +25,14 @@ h1, h2, h3, h4 {
   @apply bg-brand-200 text-brand-900;
 }
 
+/* Ring only appears on :focus-visible (real keyboard/programmatic focus), not on
+   every render and not on mouse click - outline-none alone would remove the
+   default browser focus indicator entirely, which is an accessibility regression. */
 .focus-ring {
-  @apply outline-none ring-2 ring-brand-500 ring-offset-2 ring-offset-white transition-shadow;
+  @apply outline-none transition-shadow;
+}
+.focus-ring:focus-visible {
+  @apply ring-2 ring-brand-500 ring-offset-2 ring-offset-white;
 }
 
 .skeleton {
