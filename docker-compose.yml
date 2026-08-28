@@ -1,0 +1,105 @@
+name: learnai
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: learnai-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: learnai
+      POSTGRES_PASSWORD: learnai
+      POSTGRES_DB: learnai
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U learnai -d learnai']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - learnai-net
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: learnai-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: learnai
+      RABBITMQ_DEFAULT_PASS: learnai
+    ports:
+      - '5672:5672'   # AMQP
+      - '15672:15672' # management UI (http://localhost:15672)
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    networks:
+      - learnai-net
+
+  api:
+    build:
+      # Context is the repo root (not ./apps/api) because the Dockerfile needs to COPY
+      # root package.json/package-lock.json and packages/shared (npm workspaces) — Docker
+      # cannot reach files outside the build context, so scoping it to apps/api alone would
+      # make the workspace install impossible. This is the standard pattern for npm-workspace
+      # monorepos.
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: learnai-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      PORT: 3001
+      NODE_ENV: production
+      CORS_ORIGIN: http://localhost:3000
+      DATABASE_URL: postgresql://learnai:learnai@postgres:5432/learnai?schema=public
+      JWT_ACCESS_SECRET: change-me-access-secret
+      JWT_ACCESS_EXPIRES_IN: 15m
+      JWT_REFRESH_SECRET: change-me-refresh-secret
+      JWT_REFRESH_EXPIRES_IN: 7d
+      RABBITMQ_URL: amqp://learnai:learnai@rabbitmq:5672
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      AI_MODEL_ID: ${AI_MODEL_ID:-claude-opus-5}
+      THROTTLE_TTL: 60
+      THROTTLE_LIMIT: 100
+    ports:
+      - '3001:3001'
+    # The image's own Dockerfile CMD just starts the server (see apps/api/Dockerfile) so
+    # that running the image standalone against an already-migrated DB "just works". Here,
+    # in compose, we own the DB lifecycle, so we run pending migrations first on every boot.
+    command: sh -c "npx prisma migrate deploy && node dist/main.js"
+    networks:
+      - learnai-net
+
+  web:
+    build:
+      # Same reasoning as the api service: root context so the Dockerfile can COPY the
+      # root package.json/package-lock.json and packages/shared.
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
+    container_name: learnai-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
+    ports:
+      - '3000:3000'
+    networks:
+      - learnai-net
+
+volumes:
+  postgres-data:
+
+networks:
+  learnai-net:
+    driver: bridge

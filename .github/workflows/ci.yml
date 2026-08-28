@@ -1,0 +1,139 @@
+name: CI
+
+# NOTE: this pipeline has been written and reviewed carefully against the real npm
+# scripts/deps in this repo, but has not been executed on GitHub Actions from this
+# development sandbox (no network access to Actions runners here) — it has not been
+# proven green end-to-end.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-typecheck:
+    name: Lint & Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared package
+        run: npm run build -w @learnai/shared
+
+      - name: Lint api
+        run: npm run lint -w apps/api
+
+      - name: Lint web
+        run: npm run lint -w apps/web
+
+      - name: Typecheck api
+        run: npx tsc --noEmit -p apps/api/tsconfig.json
+
+      - name: Typecheck web
+        run: npx tsc --noEmit -p apps/web/tsconfig.json
+
+  test-api:
+    name: Test API (Jest, with Postgres + RabbitMQ)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: learnai
+          POSTGRES_PASSWORD: learnai
+          POSTGRES_DB: learnai
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U learnai -d learnai"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      rabbitmq:
+        image: rabbitmq:3-management-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: learnai
+          RABBITMQ_DEFAULT_PASS: learnai
+        ports:
+          - 5672:5672
+          - 15672:15672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 10
+
+    env:
+      # GitHub Actions service containers are published to the runner's localhost.
+      DATABASE_URL: postgresql://learnai:learnai@localhost:5432/learnai?schema=public
+      RABBITMQ_URL: amqp://learnai:learnai@localhost:5672
+      JWT_ACCESS_SECRET: ci-test-access-secret
+      JWT_ACCESS_EXPIRES_IN: 15m
+      JWT_REFRESH_SECRET: ci-test-refresh-secret
+      JWT_REFRESH_EXPIRES_IN: 7d
+      NODE_ENV: test
+      PORT: 3001
+      CORS_ORIGIN: http://localhost:3000
+      THROTTLE_TTL: 60
+      THROTTLE_LIMIT: 100
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared package
+        run: npm run build -w @learnai/shared
+
+      - name: Generate Prisma client
+        run: npx prisma generate --schema apps/api/prisma/schema.prisma
+
+      - name: Run pending migrations against service Postgres
+        run: npx prisma migrate deploy --schema apps/api/prisma/schema.prisma
+
+      - name: Run API test suite with coverage
+        # apps/api's own "test:cov" script (jest --coverage) is used directly here rather
+        # than piping extra flags through the root "test:api" -> "npm test -w apps/api"
+        # indirection, since npm's argument-forwarding through a nested "npm run" script
+        # is unreliable.
+        run: npm run test:cov -w apps/api
+
+  build-web:
+    name: Build Web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared package
+        run: npm run build -w @learnai/shared
+
+      - name: Build web
+        # NEXT_PUBLIC_API_URL is inlined at build time by Next.js; a dummy value is
+        # sufficient here since this job only verifies the production build compiles.
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
+        run: npm run build -w apps/web

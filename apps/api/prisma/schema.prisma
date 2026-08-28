@@ -1,0 +1,484 @@
+// LearnAI database schema
+// Conventions: every model has a cuid `id`, and `createdAt`/`updatedAt` timestamps
+// (repeated per-model since Prisma has no mixins).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Identity & Auth
+// ---------------------------------------------------------------------------
+
+enum Role {
+  STUDENT
+  INSTRUCTOR
+  ADMIN
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  role         Role     @default(STUDENT)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  refreshTokens      RefreshToken[]
+  authoredCourses    Course[]                 @relation("CourseInstructor")
+  enrollments        Enrollment[]
+  createdQuizzes     Quiz[]                   @relation("QuizCreator")
+  quizAttempts       QuizAttempt[]
+  studentProgress    StudentProgress[]
+  courseProgress     CourseProgress[]
+  activityEvents     ActivityEvent[]
+  weakTopics         WeakTopic[]
+  recommendations    Recommendation[]
+  notifications      Notification[]
+  requestedAiDrafts  AiGeneratedQuestionDraft[] @relation("DraftRequestedBy")
+  reviewedAiDrafts   AiGeneratedQuestionDraft[] @relation("DraftReviewedBy")
+
+  @@index([role])
+}
+
+model RefreshToken {
+  id               String    @id @default(cuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash        String    @unique
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  replacedByTokenId String?
+  createdByIp      String?
+  createdAt        DateTime  @default(now())
+
+  @@index([userId, revokedAt])
+}
+
+// ---------------------------------------------------------------------------
+// Taxonomy
+// ---------------------------------------------------------------------------
+
+model Subject {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  description String?
+
+  topics  Topic[]
+  courses Course[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Topic {
+  id        String  @id @default(cuid())
+  name      String
+  subjectId String
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  questions          Question[]
+  lessons            Lesson[]
+  studentProgress    StudentProgress[]
+  weakTopics         WeakTopic[]
+  aiDrafts           AiGeneratedQuestionDraft[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([subjectId, name])
+}
+
+// ---------------------------------------------------------------------------
+// Course content
+// ---------------------------------------------------------------------------
+
+model Course {
+  id           String  @id @default(cuid())
+  title        String
+  description  String
+  subjectId    String
+  subject      Subject @relation(fields: [subjectId], references: [id])
+  instructorId String
+  instructor   User    @relation("CourseInstructor", fields: [instructorId], references: [id])
+  isPublished  Boolean @default(false)
+  isArchived   Boolean @default(false)
+
+  modules        Module[]
+  enrollments    Enrollment[]
+  quizzes        Quiz[]
+  courseProgress CourseProgress[]
+  activityEvents ActivityEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([subjectId])
+  @@index([instructorId])
+}
+
+model Module {
+  id       String @id @default(cuid())
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title    String
+  order    Int
+
+  lessons Lesson[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([courseId, order])
+}
+
+model Lesson {
+  id               String  @id @default(cuid())
+  moduleId         String
+  module           Module  @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  title            String
+  content          String
+  order            Int
+  topicId          String?
+  topic            Topic?  @relation(fields: [topicId], references: [id])
+  estimatedMinutes Int?
+
+  quizzes        Quiz[]
+  activityEvents ActivityEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([moduleId, order])
+  @@index([topicId])
+}
+
+// ---------------------------------------------------------------------------
+// Enrollment
+// ---------------------------------------------------------------------------
+
+enum EnrollmentStatus {
+  ACTIVE
+  COMPLETED
+  DROPPED
+}
+
+model Enrollment {
+  id          String           @id @default(cuid())
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId    String
+  course      Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  status      EnrollmentStatus @default(ACTIVE)
+  enrolledAt  DateTime         @default(now())
+  completedAt DateTime?
+
+  @@unique([userId, courseId])
+  @@index([courseId])
+}
+
+// ---------------------------------------------------------------------------
+// Quizzes & Questions
+// ---------------------------------------------------------------------------
+
+model Quiz {
+  id               String  @id @default(cuid())
+  title            String
+  courseId         String?
+  course           Course? @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessonId         String?
+  lesson           Lesson? @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  passingScore     Int     @default(70)
+  timeLimitMinutes Int?
+  isPublished      Boolean @default(false)
+  partialCreditMultiAnswer Boolean @default(true)
+  createdById      String
+  createdBy        User    @relation("QuizCreator", fields: [createdById], references: [id])
+
+  questions Question[]
+  attempts  QuizAttempt[]
+  aiDrafts  AiGeneratedQuestionDraft[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([courseId])
+  @@index([lessonId])
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  TRUE_FALSE
+  MULTIPLE_ANSWER
+  SHORT_ANSWER
+}
+
+model Question {
+  id                 String       @id @default(cuid())
+  quizId             String
+  quiz               Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  topicId            String
+  topic              Topic        @relation(fields: [topicId], references: [id])
+  type               QuestionType
+  prompt             String
+  points             Int          @default(1)
+  order              Int
+  explanation        String?
+  correctAnswerText  String?
+  acceptableAnswers  String[]     @default([])
+
+  options           QuestionOption[]
+  answerSubmissions AnswerSubmission[]
+  aiDraft           AiGeneratedQuestionDraft?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([quizId])
+  @@index([topicId])
+}
+
+model QuestionOption {
+  id         String   @id @default(cuid())
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  text       String
+  isCorrect  Boolean  @default(false)
+  order      Int
+
+  @@index([questionId])
+}
+
+// ---------------------------------------------------------------------------
+// Attempts & Submissions
+// ---------------------------------------------------------------------------
+
+enum AttemptStatus {
+  IN_PROGRESS
+  SUBMITTED
+  ABANDONED
+}
+
+model QuizAttempt {
+  id          String        @id @default(cuid())
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quizId      String
+  quiz        Quiz          @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  status      AttemptStatus @default(IN_PROGRESS)
+  startedAt   DateTime      @default(now())
+  submittedAt DateTime?
+  score       Float?
+  maxScore    Float?
+  passed      Boolean?
+
+  answers AnswerSubmission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, quizId])
+  @@index([quizId])
+}
+
+model AnswerSubmission {
+  id                 String      @id @default(cuid())
+  attemptId          String
+  attempt            QuizAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  questionId         String
+  question           Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  selectedOptionIds  String[]    @default([])
+  answerText         String?
+  isCorrect          Boolean?
+  pointsAwarded      Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([attemptId, questionId])
+}
+
+// ---------------------------------------------------------------------------
+// Progress & Mastery
+// ---------------------------------------------------------------------------
+
+model StudentProgress {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topicId        String
+  topic          Topic    @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  masteryScore   Float    @default(0)
+  attemptsCount  Int      @default(0)
+  correctCount   Int      @default(0)
+  lastActivityAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, topicId])
+}
+
+model CourseProgress {
+  id                 String    @id @default(cuid())
+  userId             String
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId           String
+  course             Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  completionPercent  Float     @default(0)
+  lessonsCompleted   Int       @default(0)
+  totalLessons       Int       @default(0)
+  currentStreakDays  Int       @default(0)
+  longestStreakDays  Int       @default(0)
+  lastActivityDate   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, courseId])
+}
+
+enum ActivityType {
+  LESSON_COMPLETED
+  QUIZ_COMPLETED
+  COURSE_COMPLETED
+}
+
+model ActivityEvent {
+  id         String       @id @default(cuid())
+  userId     String
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId   String?
+  course     Course?      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessonId   String?
+  lesson     Lesson?      @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  type       ActivityType
+  occurredAt DateTime     @default(now())
+
+  @@index([userId, occurredAt])
+  @@index([userId, courseId, type])
+}
+
+// ---------------------------------------------------------------------------
+// Knowledge gaps & recommendations
+// ---------------------------------------------------------------------------
+
+model WeakTopic {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topicId         String
+  topic           Topic     @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  severity        Float
+  detectedAt      DateTime  @default(now())
+  resolvedAt      DateTime?
+  basedOnAttempts Int
+
+  recommendations Recommendation[]
+
+  @@unique([userId, topicId])
+  @@index([userId, resolvedAt])
+}
+
+enum RecommendationType {
+  REVIEW_TOPIC
+  TAKE_QUIZ
+  ENROLL_COURSE
+}
+
+enum RecommendationStatus {
+  ACTIVE
+  COMPLETED
+  DISMISSED
+}
+
+model Recommendation {
+  id           String               @id @default(cuid())
+  userId       String
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type         RecommendationType
+  weakTopicId  String?
+  weakTopic    WeakTopic?           @relation(fields: [weakTopicId], references: [id], onDelete: SetNull)
+  courseId     String?
+  lessonId     String?
+  narrative    String
+  studyOrder   Int?
+  status       RecommendationStatus @default(ACTIVE)
+  generatedAt  DateTime             @default(now())
+  dismissedAt  DateTime?
+
+  @@index([userId, status])
+}
+
+// ---------------------------------------------------------------------------
+// Notifications
+// ---------------------------------------------------------------------------
+
+enum NotificationType {
+  QUIZ_RESULT
+  WEAK_TOPIC_DETECTED
+  RECOMMENDATION_READY
+  COURSE_MILESTONE
+  INSTRUCTOR_ALERT
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  body      String
+  isRead    Boolean          @default(false)
+  metadata  Json?
+  createdAt DateTime         @default(now())
+
+  @@index([userId, isRead])
+}
+
+// ---------------------------------------------------------------------------
+// AI-generated content staging
+// ---------------------------------------------------------------------------
+
+enum DraftStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PUBLISHED
+}
+
+model AiGeneratedQuestionDraft {
+  id                 String       @id @default(cuid())
+  quizId             String?
+  quiz               Quiz?        @relation(fields: [quizId], references: [id], onDelete: SetNull)
+  topicId            String
+  topic              Topic        @relation(fields: [topicId], references: [id])
+  requestedById      String
+  requestedBy        User         @relation("DraftRequestedBy", fields: [requestedById], references: [id])
+  type               QuestionType
+  prompt             String
+  optionsJson        Json
+  explanation        String?
+  sourceModel        String
+  status             DraftStatus  @default(PENDING)
+  reviewedById       String?
+  reviewedBy         User?        @relation("DraftReviewedBy", fields: [reviewedById], references: [id])
+  reviewedAt         DateTime?
+  rejectionReason    String?
+  publishedQuestionId String?     @unique
+  publishedQuestion  Question?    @relation(fields: [publishedQuestionId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([requestedById])
+}
