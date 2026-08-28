@@ -17,6 +17,13 @@
 FROM node:20-alpine AS build
 WORKDIR /workspace
 
+# Alpine's node:20-alpine image has no system OpenSSL installed at all (Node's own
+# crypto is statically compiled in, so it's not needed for Node itself) - but Prisma's
+# separate query-engine binary dlopen()s libssl.so at runtime and needs it on disk.
+# Installed here too (not just in the runtime stage) so `prisma generate` below can
+# correctly detect the OpenSSL version instead of warning and guessing wrong.
+RUN apk add --no-cache openssl
+
 # Copy workspace manifests first for better layer caching.
 COPY package.json package-lock.json ./
 COPY apps/api/package.json apps/api/package.json
@@ -32,20 +39,11 @@ COPY packages/shared packages/shared
 RUN npx prisma generate --schema apps/api/prisma/schema.prisma
 
 # Build the shared package first (api depends on its compiled output), then the api itself.
-RUN node --version && npm --version
 RUN npm run build -w @learnai/shared
-RUN echo "--- packages/shared/dist ---" && find packages/shared/dist -type f
 RUN npm run build -w @learnai/api
-# Diagnostics: if dist/main.js is missing, show exactly what got produced instead,
-# and the fully-resolved build tsconfig, so the failure is debuggable from the log
-# instead of a bare assertion.
-RUN echo "--- apps/api/dist (full tree) ---" && find apps/api/dist -type f
-RUN test -f apps/api/dist/main.js || ( \
-      echo "BUILD ERROR: apps/api/dist/main.js was not produced by nest build" && \
-      echo "--- resolved tsconfig.build.json ---" && \
-      npx tsc -p apps/api/tsconfig.build.json --showConfig && \
-      exit 1 \
-    )
+# Fail the BUILD loudly here if the entry point is missing, instead of letting a broken
+# image deploy successfully and only crash later at container start.
+RUN test -f apps/api/dist/main.js || (echo "BUILD ERROR: apps/api/dist/main.js was not produced by nest build" && exit 1)
 
 # ---------------------------------------------------------------------------
 # Stage 2: runtime
@@ -53,6 +51,10 @@ RUN test -f apps/api/dist/main.js || ( \
 FROM node:20-alpine AS runtime
 WORKDIR /workspace
 ENV NODE_ENV=production
+
+# Required at runtime for Prisma's query-engine binary to dlopen libssl - see the
+# comment on the same line in the build stage above.
+RUN apk add --no-cache openssl
 
 # Full node_modules (including the workspace-hoisted @learnai/shared, @prisma/client,
 # and the prisma CLI needed for `prisma migrate deploy` at container start) plus the
