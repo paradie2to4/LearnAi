@@ -1,6 +1,9 @@
 import { getCookie, setCookie, removeCookie } from './cookies';
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://learnai-uzat.onrender.com/api/v1';
+// `||` (not `??`) deliberately, so an empty-string env var (set-but-blank on a
+// hosting dashboard, as opposed to actually unset) still falls back correctly
+// instead of silently turning every API call into a relative same-origin request.
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://learnai-uzat.onrender.com/api/v1';
 
 export class ApiError extends Error {
   constructor(
