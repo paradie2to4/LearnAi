@@ -32,11 +32,20 @@ COPY packages/shared packages/shared
 RUN npx prisma generate --schema apps/api/prisma/schema.prisma
 
 # Build the shared package first (api depends on its compiled output), then the api itself.
+RUN node --version && npm --version
 RUN npm run build -w @learnai/shared
+RUN echo "--- packages/shared/dist ---" && find packages/shared/dist -type f
 RUN npm run build -w @learnai/api
-# Fail the BUILD loudly here if the entry point is missing, instead of letting a broken
-# image deploy successfully and only crash later at container start.
-RUN test -f apps/api/dist/main.js || (echo "BUILD ERROR: apps/api/dist/main.js was not produced by nest build" && exit 1)
+# Diagnostics: if dist/main.js is missing, show exactly what got produced instead,
+# and the fully-resolved build tsconfig, so the failure is debuggable from the log
+# instead of a bare assertion.
+RUN echo "--- apps/api/dist (full tree) ---" && find apps/api/dist -type f
+RUN test -f apps/api/dist/main.js || ( \
+      echo "BUILD ERROR: apps/api/dist/main.js was not produced by nest build" && \
+      echo "--- resolved tsconfig.build.json ---" && \
+      npx tsc -p apps/api/tsconfig.build.json --showConfig && \
+      exit 1 \
+    )
 
 # ---------------------------------------------------------------------------
 # Stage 2: runtime
