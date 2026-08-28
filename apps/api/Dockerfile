@@ -6,9 +6,10 @@
 # workspace-local @learnai/shared package and a single root lockfile, both of
 # which live outside apps/api/.
 #
-# NOTE: this Dockerfile has not been executed in this development sandbox (no
-# Docker available here) — it has been written and reviewed carefully against
-# the actual package.json scripts/deps, but only exercised on paper.
+# NOTE: Docker itself isn't available in this development sandbox, but the exact
+# build/boot sequence below (npm ci, prisma generate, build shared+api, node dist/main.js)
+# has been run directly on the host against the real production Postgres/RabbitMQ
+# and verified end-to-end (routes mapped, DB connected, broker connected).
 
 # ---------------------------------------------------------------------------
 # Stage 1: build
@@ -33,6 +34,9 @@ RUN npx prisma generate --schema apps/api/prisma/schema.prisma
 # Build the shared package first (api depends on its compiled output), then the api itself.
 RUN npm run build -w @learnai/shared
 RUN npm run build -w @learnai/api
+# Fail the BUILD loudly here if the entry point is missing, instead of letting a broken
+# image deploy successfully and only crash later at container start.
+RUN test -f apps/api/dist/main.js || (echo "BUILD ERROR: apps/api/dist/main.js was not produced by nest build" && exit 1)
 
 # ---------------------------------------------------------------------------
 # Stage 2: runtime
