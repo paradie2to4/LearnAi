@@ -120,7 +120,7 @@ export default function InstructorHomePage() {
                 required
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="focus-ring mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="focus-ring mt-1 w-full rounded-lg border border-slate-300 shadow-soft transition px-3 py-2 text-sm"
               />
             </div>
             <div>
@@ -133,7 +133,7 @@ export default function InstructorHomePage() {
                 rows={3}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="focus-ring mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="focus-ring mt-1 w-full rounded-lg border border-slate-300 shadow-soft transition px-3 py-2 text-sm"
               />
             </div>
             <div>
@@ -150,7 +150,7 @@ export default function InstructorHomePage() {
                   required
                   value={subjectId}
                   onChange={(e) => setSubjectId(e.target.value)}
-                  className="focus-ring mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
+                  className="focus-ring mt-1 w-full rounded-lg border border-slate-300 shadow-soft transition bg-white px-3 py-2 text-sm"
                 >
                   {subjects.map((subject) => (
                     <option key={subject.id} value={subject.id}>
@@ -161,7 +161,7 @@ export default function InstructorHomePage() {
               )}
             </div>
             {createError && (
-              <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+              <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-inset ring-red-200">
                 {createError}
               </p>
             )}

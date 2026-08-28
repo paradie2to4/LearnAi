@@ -87,7 +87,7 @@ export function AnswerReview({ index, answerResult, question }: AnswerReviewProp
       )}
 
       {answerResult.explanation && (
-        <p className="mt-2 rounded-md bg-slate-50 p-3 text-sm text-slate-600">{answerResult.explanation}</p>
+        <p className="mt-2 rounded-lg bg-slate-50 p-3 text-sm text-slate-600 ring-1 ring-inset ring-slate-200">{answerResult.explanation}</p>
       )}
 
       {!answerResult.isCorrect && (
@@ -103,7 +103,7 @@ export function AnswerReview({ index, answerResult, question }: AnswerReviewProp
             </Button>
           )}
           {explain.status === 'ready' && (
-            <p className="rounded-md bg-brand-50 p-3 text-sm text-brand-900">{explain.text}</p>
+            <p className="rounded-lg bg-brand-50 p-3 text-sm text-brand-900 ring-1 ring-inset ring-brand-200">{explain.text}</p>
           )}
           {explain.status === 'unavailable' && (
             <p className="text-sm text-slate-500">AI explanations aren&apos;t available right now.</p>

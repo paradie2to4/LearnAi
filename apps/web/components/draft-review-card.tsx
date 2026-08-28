@@ -43,7 +43,7 @@ export function DraftReviewCard({
           {draft.options.map((option) => (
             <li
               key={option.id}
-              className="flex items-center gap-2 rounded-md border border-slate-200 px-3 py-1.5 text-sm text-slate-700"
+              className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700"
             >
               <span>{option.text}</span>
               {option.isCorrect && (
@@ -59,7 +59,7 @@ export function DraftReviewCard({
       {draft.explanation && <p className="mt-3 text-sm text-slate-500">{draft.explanation}</p>}
 
       {error && (
-        <p role="alert" className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-inset ring-red-200">
           {error}
         </p>
       )}

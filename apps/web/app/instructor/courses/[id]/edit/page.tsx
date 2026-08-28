@@ -62,7 +62,7 @@ function AddLessonForm({ moduleId, onCreated }: { moduleId: string; onCreated: (
           required
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="focus-ring mt-1 w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm"
+          className="focus-ring mt-1 w-full rounded-lg border border-slate-300 shadow-soft transition px-2.5 py-1.5 text-sm"
         />
       </div>
       <div>
@@ -74,7 +74,7 @@ function AddLessonForm({ moduleId, onCreated }: { moduleId: string; onCreated: (
           rows={3}
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          className="focus-ring mt-1 w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-sm"
+          className="focus-ring mt-1 w-full rounded-lg border border-slate-300 shadow-soft transition px-2.5 py-1.5 text-sm"
         />
       </div>
       <div>
@@ -87,7 +87,7 @@ function AddLessonForm({ moduleId, onCreated }: { moduleId: string; onCreated: (
           min={0}
           value={estimatedMinutes}
           onChange={(e) => setEstimatedMinutes(e.target.value)}
-          className="focus-ring mt-1 w-32 rounded-md border border-slate-300 px-2.5 py-1.5 text-sm"
+          className="focus-ring mt-1 w-32 rounded-lg border border-slate-300 shadow-soft transition px-2.5 py-1.5 text-sm"
         />
       </div>
       {error && (
@@ -194,14 +194,14 @@ function AddModuleForm({ courseId, nextOrder, onCreated }: { courseId: string; n
           required
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="focus-ring mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          className="focus-ring mt-1 w-full rounded-lg border border-slate-300 shadow-soft transition px-3 py-2 text-sm"
         />
       </div>
       <Button type="submit" isLoading={isSaving}>
         Add module
       </Button>
       {error && (
-        <p role="alert" className="w-full rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p role="alert" className="w-full rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-inset ring-red-200">
           {error}
         </p>
       )}
@@ -246,7 +246,7 @@ function CreateQuizForm({ courseId, onCreated }: { courseId: string; onCreated: 
           required
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="focus-ring mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          className="focus-ring mt-1 w-full rounded-lg border border-slate-300 shadow-soft transition px-3 py-2 text-sm"
         />
       </div>
       <div>
@@ -260,14 +260,14 @@ function CreateQuizForm({ courseId, onCreated }: { courseId: string; onCreated: 
           max={100}
           value={passingScore}
           onChange={(e) => setPassingScore(e.target.value)}
-          className="focus-ring mt-1 w-24 rounded-md border border-slate-300 px-3 py-2 text-sm"
+          className="focus-ring mt-1 w-24 rounded-lg border border-slate-300 shadow-soft transition px-3 py-2 text-sm"
         />
       </div>
       <Button type="submit" isLoading={isSaving}>
         Create quiz
       </Button>
       {error && (
-        <p role="alert" className="w-full rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p role="alert" className="w-full rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-inset ring-red-200">
           {error}
         </p>
       )}
@@ -394,7 +394,7 @@ export default function EditCoursePage() {
                   required
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="focus-ring mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  className="focus-ring mt-1 w-full rounded-lg border border-slate-300 shadow-soft transition px-3 py-2 text-sm"
                 />
               </div>
               <div>
@@ -406,11 +406,11 @@ export default function EditCoursePage() {
                   rows={3}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="focus-ring mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  className="focus-ring mt-1 w-full rounded-lg border border-slate-300 shadow-soft transition px-3 py-2 text-sm"
                 />
               </div>
               {saveError && (
-                <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+                <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-inset ring-red-200">
                   {saveError}
                 </p>
               )}

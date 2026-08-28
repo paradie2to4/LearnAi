@@ -34,10 +34,10 @@ export function CourseCard({ course, isEnrolled, canEnroll, onEnrolled }: Course
   }
 
   return (
-    <Card className="flex h-full flex-col justify-between gap-4">
+    <Card interactive className="flex h-full flex-col justify-between gap-4">
       <div className="space-y-2">
         <div className="flex items-start justify-between gap-2">
-          <CardTitle>{course.title}</CardTitle>
+          <CardTitle className="text-balance">{course.title}</CardTitle>
           <Badge tone="brand">{course.subject.name}</Badge>
         </div>
         <CardDescription className="line-clamp-3">{course.description}</CardDescription>

@@ -160,7 +160,7 @@ function AddQuestionForm({ quizId, onCreated }: { quizId: string; onCreated: (q:
             id="q-type"
             value={type}
             onChange={(e) => handleTypeChange(e.target.value as QuestionType)}
-            className="focus-ring mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="focus-ring mt-1 w-full rounded-lg border border-slate-300 shadow-soft transition px-3 py-2 text-sm"
           >
             {Object.values(QuestionType).map((t) => (
               <option key={t} value={t}>
@@ -180,7 +180,7 @@ function AddQuestionForm({ quizId, onCreated }: { quizId: string; onCreated: (q:
             rows={2}
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            className="focus-ring mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="focus-ring mt-1 w-full rounded-lg border border-slate-300 shadow-soft transition px-3 py-2 text-sm"
           />
         </div>
 
@@ -195,7 +195,7 @@ function AddQuestionForm({ quizId, onCreated }: { quizId: string; onCreated: (q:
               min={0}
               value={points}
               onChange={(e) => setPoints(e.target.value)}
-              className="focus-ring mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="focus-ring mt-1 w-full rounded-lg border border-slate-300 shadow-soft transition px-3 py-2 text-sm"
             />
           </div>
           <div>
@@ -208,7 +208,7 @@ function AddQuestionForm({ quizId, onCreated }: { quizId: string; onCreated: (q:
               min={0}
               value={order}
               onChange={(e) => setOrder(e.target.value)}
-              className="focus-ring mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="focus-ring mt-1 w-full rounded-lg border border-slate-300 shadow-soft transition px-3 py-2 text-sm"
             />
           </div>
           <div>
@@ -220,7 +220,7 @@ function AddQuestionForm({ quizId, onCreated }: { quizId: string; onCreated: (q:
               required
               value={topicId}
               onChange={(e) => setTopicId(e.target.value)}
-              className="focus-ring mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="focus-ring mt-1 w-full rounded-lg border border-slate-300 shadow-soft transition px-3 py-2 text-sm"
             />
           </div>
         </div>
@@ -239,7 +239,7 @@ function AddQuestionForm({ quizId, onCreated }: { quizId: string; onCreated: (q:
                     value={opt.text}
                     onChange={(e) => updateOption(i, { text: e.target.value })}
                     placeholder={`Option ${i + 1}`}
-                    className="focus-ring flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm"
+                    className="focus-ring flex-1 rounded-lg border border-slate-300 shadow-soft transition px-3 py-2 text-sm"
                   />
                   <label className="flex items-center gap-1.5 text-xs text-slate-600">
                     <input
@@ -286,7 +286,7 @@ function AddQuestionForm({ quizId, onCreated }: { quizId: string; onCreated: (q:
                 required
                 value={correctAnswerText}
                 onChange={(e) => setCorrectAnswerText(e.target.value)}
-                className="focus-ring mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="focus-ring mt-1 w-full rounded-lg border border-slate-300 shadow-soft transition px-3 py-2 text-sm"
               />
             </div>
             <div>
@@ -297,7 +297,7 @@ function AddQuestionForm({ quizId, onCreated }: { quizId: string; onCreated: (q:
                 id="q-acceptable"
                 value={acceptableAnswers}
                 onChange={(e) => setAcceptableAnswers(e.target.value)}
-                className="focus-ring mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="focus-ring mt-1 w-full rounded-lg border border-slate-300 shadow-soft transition px-3 py-2 text-sm"
               />
             </div>
           </div>
@@ -312,12 +312,12 @@ function AddQuestionForm({ quizId, onCreated }: { quizId: string; onCreated: (q:
             rows={2}
             value={explanation}
             onChange={(e) => setExplanation(e.target.value)}
-            className="focus-ring mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="focus-ring mt-1 w-full rounded-lg border border-slate-300 shadow-soft transition px-3 py-2 text-sm"
           />
         </div>
 
         {error && (
-          <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-inset ring-red-200">
             {error}
           </p>
         )}
@@ -372,7 +372,7 @@ function AiGenerateForm({ quizId }: { quizId: string }) {
             required
             value={topicId}
             onChange={(e) => setTopicId(e.target.value)}
-            className="focus-ring mt-1 w-48 rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="focus-ring mt-1 w-48 rounded-lg border border-slate-300 shadow-soft transition px-3 py-2 text-sm"
           />
         </div>
         <div>
@@ -386,7 +386,7 @@ function AiGenerateForm({ quizId }: { quizId: string }) {
             max={20}
             value={count}
             onChange={(e) => setCount(e.target.value)}
-            className="focus-ring mt-1 w-20 rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="focus-ring mt-1 w-20 rounded-lg border border-slate-300 shadow-soft transition px-3 py-2 text-sm"
           />
         </div>
         <div>
@@ -397,7 +397,7 @@ function AiGenerateForm({ quizId }: { quizId: string }) {
             id="ai-difficulty"
             value={difficulty}
             onChange={(e) => setDifficulty(e.target.value as 'EASY' | 'MEDIUM' | 'HARD')}
-            className="focus-ring mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="focus-ring mt-1 rounded-lg border border-slate-300 shadow-soft transition px-3 py-2 text-sm"
           >
             <option value="EASY">Easy</option>
             <option value="MEDIUM">Medium</option>
@@ -409,7 +409,7 @@ function AiGenerateForm({ quizId }: { quizId: string }) {
         </Button>
       </form>
       {error && (
-        <p role="alert" className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-inset ring-red-200">
           {error}
         </p>
       )}
@@ -494,7 +494,7 @@ export default function EditQuizPage() {
             </Button>
           </div>
           {publishError && (
-            <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+            <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-inset ring-red-200">
               {publishError}
             </p>
           )}

@@ -168,7 +168,7 @@ export default function AdminPage() {
                           value={u.role}
                           disabled={roleUpdating.has(u.id)}
                           onChange={(e) => handleRoleChange(u.id, e.target.value as Role)}
-                          className="focus-ring rounded-md border border-slate-300 px-2 py-1.5 text-sm disabled:opacity-50"
+                          className="focus-ring rounded-lg border border-slate-300 shadow-soft transition px-2 py-1.5 text-sm disabled:opacity-50"
                         >
                           {ROLE_OPTIONS.map((role) => (
                             <option key={role} value={role}>

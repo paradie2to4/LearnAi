@@ -2,6 +2,7 @@
 
 import type { AnswerInput, QuestionDto } from '@learnai/shared';
 import { QuestionType } from '@learnai/shared';
+import clsx from 'clsx';
 
 interface QuestionRendererProps {
   question: QuestionDto;
@@ -49,20 +50,28 @@ export function QuestionRenderer({ question, index, value, onChange }: QuestionR
         <div className="mt-3 space-y-2">
           {sortedOptions.map((option) => {
             const inputId = `q-${question.id}-opt-${option.id}`;
+            const isChecked = selectedOptionIds.includes(option.id);
             return (
-              <div key={option.id} className="flex items-center gap-2">
+              <label
+                key={option.id}
+                htmlFor={inputId}
+                className={clsx(
+                  'flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2.5 text-sm transition',
+                  isChecked
+                    ? 'border-brand-300 bg-brand-50 text-brand-900'
+                    : 'border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50',
+                )}
+              >
                 <input
                   id={inputId}
                   type="radio"
                   name={`q-${question.id}`}
-                  checked={selectedOptionIds.includes(option.id)}
+                  checked={isChecked}
                   onChange={() => handleSingleSelect(option.id)}
                   className="focus-ring h-4 w-4 text-brand-600"
                 />
-                <label htmlFor={inputId} className="text-sm text-slate-700">
-                  {option.text}
-                </label>
-              </div>
+                {option.text}
+              </label>
             );
           })}
         </div>
@@ -72,19 +81,27 @@ export function QuestionRenderer({ question, index, value, onChange }: QuestionR
         <div className="mt-3 space-y-2">
           {sortedOptions.map((option) => {
             const inputId = `q-${question.id}-opt-${option.id}`;
+            const isChecked = selectedOptionIds.includes(option.id);
             return (
-              <div key={option.id} className="flex items-center gap-2">
+              <label
+                key={option.id}
+                htmlFor={inputId}
+                className={clsx(
+                  'flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2.5 text-sm transition',
+                  isChecked
+                    ? 'border-brand-300 bg-brand-50 text-brand-900'
+                    : 'border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50',
+                )}
+              >
                 <input
                   id={inputId}
                   type="checkbox"
-                  checked={selectedOptionIds.includes(option.id)}
+                  checked={isChecked}
                   onChange={(e) => handleMultiSelect(option.id, e.target.checked)}
                   className="focus-ring h-4 w-4 rounded text-brand-600"
                 />
-                <label htmlFor={inputId} className="text-sm text-slate-700">
-                  {option.text}
-                </label>
-              </div>
+                {option.text}
+              </label>
             );
           })}
         </div>
@@ -100,7 +117,7 @@ export function QuestionRenderer({ question, index, value, onChange }: QuestionR
             type="text"
             value={value?.answerText ?? ''}
             onChange={(e) => handleTextChange(e.target.value)}
-            className="focus-ring w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="focus-ring w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-soft transition placeholder:text-slate-400"
             placeholder="Type your answer"
           />
         </div>

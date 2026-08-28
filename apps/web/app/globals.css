@@ -13,6 +13,12 @@ body {
 
 body {
   @apply bg-slate-50 text-slate-900 antialiased;
+  font-feature-settings: 'cv11', 'ss01';
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4 {
+  @apply tracking-tight;
 }
 
 ::selection {
@@ -20,9 +26,20 @@ body {
 }
 
 .focus-ring {
-  @apply outline-none ring-2 ring-brand-500 ring-offset-2 ring-offset-white;
+  @apply outline-none ring-2 ring-brand-500 ring-offset-2 ring-offset-white transition-shadow;
 }
 
 .skeleton {
-  @apply animate-pulse rounded-md bg-slate-200;
+  @apply animate-pulse rounded-md bg-slate-200/80;
+}
+
+/* Subtle scrollbar for chat/log-style panels */
+.scroll-thin::-webkit-scrollbar {
+  width: 6px;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  @apply rounded-full bg-slate-300;
+}
+.scroll-thin::-webkit-scrollbar-track {
+  background: transparent;
 }

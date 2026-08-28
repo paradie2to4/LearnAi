@@ -33,7 +33,10 @@ export function TopicMasteryChart({ topics }: { topics: TopicMasteryDto[] }) {
               aria-label={`${topic.topicName} mastery score`}
               className="h-3 w-full overflow-hidden rounded-full bg-slate-100"
             >
-              <div className={`h-full rounded-full ${tierColor(topic.masteryScore)}`} style={{ width: `${clamped}%` }} />
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${tierColor(topic.masteryScore)}`}
+                style={{ width: `${clamped}%` }}
+              />
             </div>
             <p className="mt-1 text-xs text-slate-400">
               {topic.attemptsCount} attempt{topic.attemptsCount === 1 ? '' : 's'} · last activity{' '}

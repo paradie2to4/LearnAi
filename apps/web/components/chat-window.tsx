@@ -31,7 +31,7 @@ export function ChatWindow({ messages, isThinking }: { messages: ChatMessage[]; 
       role="log"
       aria-live="polite"
       aria-label="Conversation with the AI study assistant"
-      className="flex h-full flex-col gap-3 overflow-y-auto px-1 py-4"
+      className="scroll-thin flex h-full flex-col gap-3 overflow-y-auto px-1 py-4"
     >
       {messages.length === 0 && !isThinking && (
         <p className="m-auto max-w-sm text-center text-sm text-slate-400">
