@@ -3,11 +3,12 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { EnrollmentDto, NotificationDto, ProgressSummaryDto, RecommendationDto } from '@learnai/shared';
-import { EnrollmentStatus } from '@learnai/shared';
+import { EnrollmentStatus, Role } from '@learnai/shared';
 import { useAuth } from '../../lib/auth-context';
 import { api, ApiError } from '../../lib/api-client';
 import { AppShell } from '../../components/app-shell';
 import { Badge } from '../../components/ui/badge';
+import { Button } from '../../components/ui/button';
 import { Card, CardTitle, CardDescription } from '../../components/ui/card';
 import { Skeleton, EmptyState, ErrorState } from '../../components/ui/states';
 
@@ -24,6 +25,115 @@ function describeError(reason: unknown): string {
 export default function DashboardPage() {
   const { user, isLoading: authLoading } = useAuth();
 
+  if (authLoading || !user) {
+    return (
+      <AppShell>
+        <div className="space-y-6">
+          <Skeleton className="h-10 w-1/3" />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-40 w-full" />
+            ))}
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
+  // Progress/recommendations are student-specific concepts — an instructor or admin
+  // has no personal mastery/weak-topic data, so the backend correctly rejects those
+  // endpoints for non-students (403). Route them to a lighter, role-appropriate view
+  // instead of showing a dashboard full of permission errors.
+  if (user.role !== Role.STUDENT) {
+    return <StaffDashboard role={user.role} firstName={user.firstName} />;
+  }
+
+  return <StudentDashboard firstName={user.firstName} />;
+}
+
+function StaffDashboard({ role, firstName }: { role: string; firstName: string }) {
+  const [notifications, setNotifications] = useState<SectionState<NotificationDto[]>>({ data: null, error: null });
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    api
+      .get<NotificationDto[]>('/notifications/me?unread=true')
+      .then((data) => setNotifications({ data, error: null }))
+      .catch((err) => setNotifications({ data: null, error: describeError(err) }))
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  return (
+    <AppShell>
+      <div className="space-y-8">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Welcome back, {firstName}</h1>
+          <p className="text-sm text-slate-500">
+            {role === Role.ADMIN
+              ? 'Manage users, courses, and platform-wide analytics from here.'
+              : 'This is your account overview. Course authoring and analytics live in Instructor tools.'}
+          </p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Card interactive>
+            <CardTitle>Instructor tools</CardTitle>
+            <CardDescription>Create courses, author quizzes, and review AI-generated questions.</CardDescription>
+            <Link href="/instructor" className="mt-4 inline-block">
+              <Button size="sm">Go to Instructor dashboard</Button>
+            </Link>
+          </Card>
+          {role === Role.ADMIN && (
+            <Card interactive>
+              <CardTitle>Admin tools</CardTitle>
+              <CardDescription>Manage user roles and view platform-wide analytics.</CardDescription>
+              <Link href="/admin" className="mt-4 inline-block">
+                <Button size="sm">Go to Admin dashboard</Button>
+              </Link>
+            </Card>
+          )}
+          <Card interactive>
+            <CardTitle>Browse courses</CardTitle>
+            <CardDescription>See the catalog as a student would see it.</CardDescription>
+            <Link href="/courses" className="mt-4 inline-block">
+              <Button size="sm" variant="secondary">
+                View courses
+              </Button>
+            </Link>
+          </Card>
+        </div>
+
+        <section aria-labelledby="notifications-heading" className="space-y-3">
+          <h2 id="notifications-heading" className="text-lg font-semibold text-slate-900">
+            Unread notifications
+          </h2>
+          {isLoading ? (
+            <Skeleton className="h-24 w-full" />
+          ) : notifications.error ? (
+            <ErrorState message={notifications.error} />
+          ) : !notifications.data || notifications.data.length === 0 ? (
+            <Card>
+              <p className="text-sm text-slate-500">You&apos;re all caught up.</p>
+            </Card>
+          ) : (
+            <Card>
+              <ul className="divide-y divide-slate-100">
+                {notifications.data.slice(0, 5).map((n) => (
+                  <li key={n.id} className="py-2">
+                    <p className="text-sm font-medium text-slate-800">{n.title}</p>
+                    <p className="text-xs text-slate-500">{n.body}</p>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+        </section>
+      </div>
+    </AppShell>
+  );
+}
+
+function StudentDashboard({ firstName }: { firstName: string }) {
   const [isLoading, setIsLoading] = useState(true);
   const [enrollments, setEnrollments] = useState<SectionState<EnrollmentDto[]>>({ data: null, error: null });
   const [progress, setProgress] = useState<SectionState<ProgressSummaryDto>>({ data: null, error: null });
@@ -82,7 +192,7 @@ export default function DashboardPage() {
     .sort((a, b) => (a.studyOrder ?? Infinity) - (b.studyOrder ?? Infinity))
     .slice(0, 3);
 
-  if (authLoading || isLoading) {
+  if (isLoading) {
     return (
       <AppShell>
         <div className="space-y-6">
@@ -102,11 +212,11 @@ export default function DashboardPage() {
       <div className="space-y-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Welcome back{user ? `, ${user.firstName}` : ''}</h1>
+            <h1 className="text-2xl font-bold text-slate-900">Welcome back, {firstName}</h1>
             <p className="text-sm text-slate-500">Here&apos;s where you left off.</p>
           </div>
           {progress.data && (
-            <div className="rounded-lg bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-800">
+            <div className="rounded-lg bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-800 ring-1 ring-inset ring-amber-200">
               🔥 {progress.data.currentStreakDays}-day streak
             </div>
           )}
@@ -125,7 +235,7 @@ export default function DashboardPage() {
               action={
                 <Link
                   href="/courses"
-                  className="focus-ring inline-flex items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-700"
+                  className="focus-ring inline-flex items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white shadow-soft transition hover:bg-brand-700"
                 >
                   Browse courses
                 </Link>
@@ -137,13 +247,13 @@ export default function DashboardPage() {
                 const courseProgress = courseProgressById.get(enrollment.courseId);
                 const percent = courseProgress?.completionPercent ?? 0;
                 return (
-                  <Card key={enrollment.id}>
+                  <Card key={enrollment.id} interactive>
                     <CardTitle>{enrollment.course.title}</CardTitle>
                     <CardDescription className="line-clamp-2">{enrollment.course.description}</CardDescription>
                     <div className="mt-3">
                       <div className="h-2 w-full rounded-full bg-slate-100">
                         <div
-                          className="h-2 rounded-full bg-brand-600"
+                          className="h-2 rounded-full bg-brand-600 transition-all duration-500"
                           style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
                         />
                       </div>
