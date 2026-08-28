@@ -6,6 +6,10 @@ export const envSchema = z.object({
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
 
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
+  // Only consumed directly by the Prisma CLI (schema.prisma's `directUrl`) for
+  // `prisma migrate`, never read by application code - optional because a
+  // plain non-pooled Postgres (e.g. local dev) doesn't need a separate one.
+  DIRECT_URL: z.string().optional(),
 
   JWT_ACCESS_SECRET: z.string().min(1, 'JWT_ACCESS_SECRET is required'),
   JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
