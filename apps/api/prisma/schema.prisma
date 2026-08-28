@@ -3,7 +3,12 @@
 // (repeated per-model since Prisma has no mixins).
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // "native" covers local dev (Windows/macOS/glibc-Linux). "linux-musl-openssl-3.0.x"
+  // is required for node:20-alpine (Render's Docker image) - Alpine ships OpenSSL 3.x,
+  // but Prisma's default musl binary target assumes OpenSSL 1.1.x, causing
+  // "Error loading shared library libssl.so.1.1: No such file or directory" at runtime.
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
