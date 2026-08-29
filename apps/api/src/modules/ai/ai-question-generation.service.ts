@@ -8,6 +8,7 @@ import { assertIsOwnerOrAdmin, resolveOwningInstructorId } from '../quizzes/quiz
 import { AiProvider, GeneratedQuestion } from './ai-provider.interface';
 import { AI_PROVIDER } from './ai.constants';
 import { GenerateQuestionsDto, QuestionDifficulty } from './dto/generate-questions.dto';
+import { wrapAiCall } from './wrap-ai-call.util';
 
 /** How many lesson excerpts to pull as grounding content for a given topic. */
 const MAX_GROUNDING_LESSONS = 2;
@@ -51,14 +52,18 @@ export class AiQuestionGenerationService {
       lesson.content.slice(0, GROUNDING_EXCERPT_MAX_CHARS),
     );
 
-    const generated = await this.aiProvider.generateQuizQuestions({
-      subject: topic.subject.name,
-      topicName: topic.name,
-      difficulty: dto.difficulty ?? DEFAULT_DIFFICULTY,
-      count: dto.count,
-      questionTypes: dto.questionType ? [dto.questionType] : undefined,
-      groundingContent: groundingContent.length > 0 ? groundingContent : undefined,
-    });
+    const generated = await wrapAiCall(
+      () =>
+        this.aiProvider.generateQuizQuestions({
+          subject: topic.subject.name,
+          topicName: topic.name,
+          difficulty: dto.difficulty ?? DEFAULT_DIFFICULTY,
+          count: dto.count,
+          questionTypes: dto.questionType ? [dto.questionType] : undefined,
+          groundingContent: groundingContent.length > 0 ? groundingContent : undefined,
+        }),
+      'AI question generation is temporarily unavailable.',
+    );
 
     const sourceModel = this.configService.get<string>('AI_MODEL_ID') ?? 'gemini-1.5-flash';
 

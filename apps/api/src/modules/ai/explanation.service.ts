@@ -3,6 +3,7 @@ import { QuestionType } from '@learnai/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AiProvider } from './ai-provider.interface';
 import { AI_PROVIDER } from './ai.constants';
+import { wrapAiCall } from './wrap-ai-call.util';
 
 /** Friendly short-circuit for a submission that was actually correct — no need to spend an AI call explaining a right answer. */
 const ALREADY_CORRECT_MESSAGE =
@@ -54,13 +55,17 @@ export class ExplanationService {
       ? (question.correctAnswerText ?? '(no reference answer configured)')
       : this.describeCorrectOptions(question.options);
 
-    const explanation = await this.aiProvider.explainIncorrectAnswer({
-      questionPrompt: question.prompt,
-      options,
-      selectedAnswerText,
-      correctAnswerText,
-      existingExplanation: question.explanation,
-    });
+    const explanation = await wrapAiCall(
+      () =>
+        this.aiProvider.explainIncorrectAnswer({
+          questionPrompt: question.prompt,
+          options,
+          selectedAnswerText,
+          correctAnswerText,
+          existingExplanation: question.explanation,
+        }),
+      'AI explanations are temporarily unavailable.',
+    );
 
     return { explanation };
   }

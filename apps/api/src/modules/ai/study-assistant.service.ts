@@ -2,6 +2,7 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AiProvider, StudyAssistantMessage } from './ai-provider.interface';
 import { AI_PROVIDER } from './ai.constants';
+import { wrapAiCall } from './wrap-ai-call.util';
 
 /** Bounds on how much we pull into the context string, to keep the prompt small and the query cheap/bounded. */
 const MAX_TOPIC_MASTERY_ROWS = 5;
@@ -24,13 +25,16 @@ export class StudyAssistantService {
 
     const contextSummary = await this.buildContextSummary(userId);
 
-    const answer = await this.aiProvider.answerStudyAssistantQuestion({
-      studentFirstName: user.firstName,
-      contextSummary,
-      history,
-      question,
-    });
-
+    const answer = await wrapAiCall(
+      () =>
+        this.aiProvider.answerStudyAssistantQuestion({
+          studentFirstName: user.firstName,
+          contextSummary,
+          history,
+          question,
+        }),
+      'The AI study assistant is temporarily unavailable.',
+    );
     return { answer };
   }
 
