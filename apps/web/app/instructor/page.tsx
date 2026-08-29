@@ -31,16 +31,43 @@ export default function InstructorHomePage() {
   const [createError, setCreateError] = useState<string | null>(null);
 
   const [subjects, setSubjects] = useState<SubjectDto[] | null>(null);
+  const [newSubjectName, setNewSubjectName] = useState('');
+  const [isCreatingSubject, setIsCreatingSubject] = useState(false);
+  const [subjectError, setSubjectError] = useState<string | null>(null);
 
-  useEffect(() => {
-    api
+  const loadSubjects = useCallback(() => {
+    return api
       .get<SubjectDto[]>('/subjects')
       .then((result) => {
         setSubjects(result);
         if (result.length > 0) setSubjectId((current) => current || result[0].id);
+        return result;
       })
-      .catch(() => setSubjects([]));
+      .catch(() => {
+        setSubjects([]);
+        return [];
+      });
   }, []);
+
+  useEffect(() => {
+    loadSubjects();
+  }, [loadSubjects]);
+
+  async function handleCreateSubject() {
+    if (!newSubjectName.trim()) return;
+    setIsCreatingSubject(true);
+    setSubjectError(null);
+    try {
+      const created = await api.post<SubjectDto>('/subjects', { name: newSubjectName.trim() });
+      setSubjects((prev) => [...(prev ?? []), created]);
+      setSubjectId(created.id);
+      setNewSubjectName('');
+    } catch (err) {
+      setSubjectError(err instanceof ApiError ? err.message : 'Failed to create subject.');
+    } finally {
+      setIsCreatingSubject(false);
+    }
+  }
 
   const loadCourses = useCallback(() => {
     if (!user) return;
@@ -147,10 +174,34 @@ export default function InstructorHomePage() {
               {subjects === null ? (
                 <Skeleton className="mt-1 h-9 w-full" />
               ) : subjects.length === 0 ? (
-                <p className="mt-1 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 ring-1 ring-inset ring-amber-200">
-                  No subjects exist in the database yet, so a course can&apos;t be created — an admin needs to seed
-                  or create at least one subject first.
-                </p>
+                <div className="mt-1 space-y-2 rounded-lg bg-amber-50 p-3 ring-1 ring-inset ring-amber-200">
+                  <p className="text-sm text-amber-800">
+                    No subjects exist yet — create the first one below (e.g. &ldquo;Computer Science&rdquo;), then
+                    pick it here.
+                  </p>
+                  <div className="flex gap-2">
+                    <label htmlFor="new-subject-name" className="sr-only">
+                      New subject name
+                    </label>
+                    <input
+                      id="new-subject-name"
+                      value={newSubjectName}
+                      onChange={(e) => setNewSubjectName(e.target.value)}
+                      placeholder="e.g. Computer Science"
+                      className="focus-ring w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm shadow-soft transition"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      isLoading={isCreatingSubject}
+                      onClick={handleCreateSubject}
+                    >
+                      Add subject
+                    </Button>
+                  </div>
+                  {subjectError && <p className="text-xs text-red-700">{subjectError}</p>}
+                </div>
               ) : (
                 <select
                   id="course-subject"
