@@ -22,6 +22,7 @@ export class QuestionsService {
     await this.assertQuizOwnership(quiz, user);
 
     this.validateInvariant(dto.type, dto.options, dto.correctAnswerText);
+    await this.assertTopicExists(dto.topicId);
 
     return this.prisma.question.create({
       data: {
@@ -64,6 +65,9 @@ export class QuestionsService {
       dto.correctAnswerText !== undefined ? dto.correctAnswerText : (question.correctAnswerText ?? undefined);
 
     this.validateInvariant(effectiveType, effectiveOptions, effectiveCorrectAnswerText);
+    if (dto.topicId !== undefined) {
+      await this.assertTopicExists(dto.topicId);
+    }
 
     return this.prisma.$transaction(async (tx) => {
       if (dto.options !== undefined) {
@@ -151,6 +155,14 @@ export class QuestionsService {
       }
       default:
         throw new BadRequestException(`Unsupported question type: ${type as string}`);
+    }
+  }
+
+  /** Turns an invalid topicId into a clean 404 instead of an unhandled FK-constraint 500 from Prisma. */
+  private async assertTopicExists(topicId: string): Promise<void> {
+    const topic = await this.prisma.topic.findUnique({ where: { id: topicId } });
+    if (!topic) {
+      throw new NotFoundException(`Topic not found: ${topicId}`);
     }
   }
 
