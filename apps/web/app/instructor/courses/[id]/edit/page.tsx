@@ -11,7 +11,15 @@ import { Button } from '../../../../../components/ui/button';
 import { Card, CardTitle } from '../../../../../components/ui/card';
 import { ErrorState, Skeleton } from '../../../../../components/ui/states';
 
-function AddLessonForm({ moduleId, onCreated }: { moduleId: string; onCreated: (lesson: LessonSummaryDto) => void }) {
+function AddLessonForm({
+  moduleId,
+  nextOrder,
+  onCreated,
+}: {
+  moduleId: string;
+  nextOrder: number;
+  onCreated: (lesson: LessonSummaryDto) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -28,7 +36,7 @@ function AddLessonForm({ moduleId, onCreated }: { moduleId: string; onCreated: (
       const lesson = await api.post<LessonSummaryDto>(`/modules/${moduleId}/lessons`, {
         title: title.trim(),
         content,
-        order: 0,
+        order: nextOrder,
         estimatedMinutes: estimatedMinutes ? Number(estimatedMinutes) : undefined,
       });
       onCreated(lesson);
@@ -156,7 +164,11 @@ function ModuleCard({ module: mod, onLessonCreated, onDeleted }: {
         <p className="mt-3 text-sm text-slate-400">No lessons yet.</p>
       )}
       <div className="mt-3">
-        <AddLessonForm moduleId={mod.id} onCreated={(lesson) => onLessonCreated(mod.id, lesson)} />
+        <AddLessonForm
+          moduleId={mod.id}
+          nextOrder={mod.lessons.length}
+          onCreated={(lesson) => onLessonCreated(mod.id, lesson)}
+        />
       </div>
     </Card>
   );
