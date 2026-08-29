@@ -72,7 +72,11 @@ export default function InstructorHomePage() {
 
   async function handleCreateCourse(event: FormEvent) {
     event.preventDefault();
-    if (!title.trim() || !subjectId.trim()) return;
+    if (!title.trim()) return;
+    if (!subjectId.trim()) {
+      setCreateError('No subject is selected — a subject must exist before you can create a course.');
+      return;
+    }
     setIsCreating(true);
     setCreateError(null);
     try {
@@ -143,7 +147,10 @@ export default function InstructorHomePage() {
               {subjects === null ? (
                 <Skeleton className="mt-1 h-9 w-full" />
               ) : subjects.length === 0 ? (
-                <p className="mt-1 text-sm text-slate-500">No subjects exist yet — ask an admin to create one.</p>
+                <p className="mt-1 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 ring-1 ring-inset ring-amber-200">
+                  No subjects exist in the database yet, so a course can&apos;t be created — an admin needs to seed
+                  or create at least one subject first.
+                </p>
               ) : (
                 <select
                   id="course-subject"
@@ -165,7 +172,7 @@ export default function InstructorHomePage() {
                 {createError}
               </p>
             )}
-            <Button type="submit" isLoading={isCreating}>
+            <Button type="submit" isLoading={isCreating} disabled={subjects === null || subjects.length === 0}>
               Create course
             </Button>
           </form>

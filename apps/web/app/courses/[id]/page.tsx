@@ -14,7 +14,7 @@ import { Skeleton, EmptyState, ErrorState } from '../../../components/ui/states'
 export default function CourseDetailPage() {
   const params = useParams<{ id: string }>();
   const courseId = params.id;
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
 
   const [course, setCourse] = useState<CourseDetailDto | null>(null);
   const [enrollments, setEnrollments] = useState<EnrollmentDto[]>([]);
@@ -48,19 +48,27 @@ export default function CourseDetailPage() {
       setIsLoading(false);
       return;
     }
-    try {
-      const enrollmentsResult = await api.get<EnrollmentDto[]>('/enrollments/me');
-      setEnrollments(enrollmentsResult);
-    } catch {
-      setEnrollments([]);
+    // /enrollments/me is student-only on the backend - skip it entirely for
+    // instructor/admin viewers instead of firing a request that's guaranteed to 403.
+    if (user?.role === 'STUDENT') {
+      try {
+        const enrollmentsResult = await api.get<EnrollmentDto[]>('/enrollments/me');
+        setEnrollments(enrollmentsResult);
+      } catch {
+        setEnrollments([]);
+      }
     }
     setIsLoading(false);
   }
 
   useEffect(() => {
+    // Wait for auth to resolve first - otherwise `user` is still null on the very
+    // first render and the student-only enrollments fetch below would be skipped
+    // even for an actual student.
+    if (authLoading) return;
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courseId]);
+  }, [courseId, authLoading]);
 
   const isEnrolled = enrollments.some((e) => e.courseId === courseId);
   const isOwningInstructor = !!user && user.role === 'INSTRUCTOR' && course?.instructor.id === user.id;
