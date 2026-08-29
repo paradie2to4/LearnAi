@@ -4,7 +4,10 @@ An AI-powered learning and assessment platform: students take quizzes, LearnAI a
 
 This repository is a full-stack engineering sample — a modular-monolith NestJS API, a Next.js frontend, PostgreSQL via Prisma, an internal RabbitMQ event bus, and a real (swappable) LLM integration — built to demonstrate production-shaped architecture rather than a tutorial CRUD app.
 
-> **Honesty note on verification**: this project was built in a sandbox without Docker, a running Postgres, or a running RabbitMQ instance available. Everything here has been type-checked (`tsc --noEmit`) and unit/integration-tested with a mocked Prisma client (144 Jest tests passing across 16 suites, see [Testing](#testing)), and the Prisma schema has been validated and used to generate a real initial migration. The Docker Compose stack and GitHub Actions CI pipeline are written carefully against the actual scripts/dependencies in this repo, but have **not** been executed end-to-end from this sandbox. Treat them as correct-by-construction and code-reviewed, not as proven-green.
+**Live demo**: [learn-ai-web-b13j.vercel.app](https://learn-ai-web-b13j.vercel.app) · API docs: [learnai-uzat.onrender.com/api/docs](https://learnai-uzat.onrender.com/api/docs)
+*(Render's free tier spins down after 15 minutes idle — the first request after that takes 30-60s to wake back up.)*
+
+> **Verification note**: this project was built in a sandbox without Docker available, so `docker-compose.yml` itself has not been run end-to-end from that sandbox — treat it as correct-by-construction and code-reviewed, not as proven-green. Everything else has been verified against real infrastructure: 158 Jest tests pass across 17 suites (mocked Prisma client, see [Testing](#testing)); the compiled backend has been booted directly against a live Postgres (Neon) and RabbitMQ (CloudAMQP), confirming DB connection, broker connection, and all routes mapped; and the app is actually deployed and running — API on Render, frontend on Vercel, database on Neon, message broker on CloudAMQP.
 
 ---
 
@@ -61,7 +64,7 @@ flowchart TB
 
     DB[(PostgreSQL\nvia Prisma)]
     MQ{{RabbitMQ\nlearnai.events exchange}}
-    CLAUDE[["Anthropic Claude API"]]
+    GEMINI[["Google Gemini API"]]
 
     WEB -->|REST, JWT bearer| API
     AUTH --> DB
@@ -80,7 +83,7 @@ flowchart TB
     PROGRESS -- "publish: course.completed" --> MQ
     RECS -- "publish: weaktopic.detected,\nrecommendation.generated" --> MQ
 
-    AI --> CLAUDE
+    AI --> GEMINI
     RECS -.->|AI_PROVIDER token| AI
     QUIZ -.->|explain / generate| AI
 ```
@@ -93,7 +96,7 @@ flowchart TB
 | Backend | NestJS + TypeScript | Opinionated module/DI structure scales cleanly to ~10 feature modules; first-class guards/interceptors/filters/Swagger support. |
 | Database | PostgreSQL + Prisma | Real relational constraints (FKs, unique indexes) matter for enrollment/attempt integrity; Prisma gives type-safe queries and a migration workflow. |
 | Auth | JWT (access + rotating refresh) + bcrypt + RBAC | Stateless access tokens scale horizontally; refresh rotation limits the blast radius of a leaked refresh token; RBAC via a `RolesGuard` keeps authorization declarative on each route. |
-| AI | Anthropic Claude, behind an `AiProvider` interface | Four distinct, high-value capabilities (not a generic chatbot) — see [AI Architecture](#ai-architecture). Interface-first means the provider is swappable and mockable in tests. |
+| AI | Google Gemini, behind an `AiProvider` interface | Four distinct, high-value capabilities (not a generic chatbot) — see [AI Architecture](#ai-architecture). Gemini's free tier (no card required) keeps this runnable at zero cost; interface-first means the provider is swappable (an `AnthropicProvider` implementation ships alongside it) and mockable in tests. |
 | Messaging | RabbitMQ via `@golevelup/nestjs-rabbitmq` | Decouples synchronous scoring from asynchronous progress/recommendation/notification processing — see [Event-Driven Architecture](#event-driven-architecture). |
 | Testing | Jest | Unit tests against a mocked Prisma client (`jest-mock-extended`) for fast, DB-free coverage of business logic; the same suite runs against real Postgres/RabbitMQ service containers in CI. |
 | DevOps | Docker Compose + GitHub Actions | Compose brings up Postgres/RabbitMQ/API/web as one stack; CI lints, typechecks, tests against real service containers, and builds the frontend. |
@@ -215,11 +218,11 @@ Interactive OpenAPI/Swagger docs are served at **`/api/docs`** once the API is r
 
 ## AI Architecture
 
-All AI calls go through one interface, [`AiProvider`](apps/api/src/modules/ai/ai-provider.interface.ts), bound via a DI token (`AI_PROVIDER`) to a concrete [`AnthropicProvider`](apps/api/src/modules/ai/anthropic.provider.ts) — swappable for a different vendor, and trivially mockable in tests (every consumer test mocks the interface, never the Anthropic SDK directly). Four capabilities, each deliberately narrow rather than a general-purpose chatbot:
+All AI calls go through one interface, [`AiProvider`](apps/api/src/modules/ai/ai-provider.interface.ts), bound via a DI token (`AI_PROVIDER`) to a concrete [`GeminiProvider`](apps/api/src/modules/ai/gemini.provider.ts) — chosen as the default because Google AI Studio issues a genuinely free API key (no card, no trial expiry), keeping the whole project runnable at zero cost. An [`AnthropicProvider`](apps/api/src/modules/ai/anthropic.provider.ts) implementation ships alongside it; switching is a one-line change of `useClass` in `ai.module.ts`, since every consumer depends only on the interface and every consumer test mocks that interface, never a vendor SDK directly. Four capabilities, each deliberately narrow rather than a general-purpose chatbot:
 
 1. **AI quiz generation with instructor approval** — an instructor requests N questions for a topic/difficulty; the model returns structured drafts (validated against a Zod schema) which land in `AiGeneratedQuestionDraft` with `status: PENDING`. Nothing is gradeable yet. The instructor reviews, optionally edits, and approves; a separate publish step transactionally creates the real `Question`/`QuestionOption` rows. AI never writes directly to live quiz content.
 2. **Wrong-answer explanation** — given a student's incorrect submission, the model explains why the correct answer is correct and why the selected answer is a common misconception, grounded in the question's own `explanation` field where one exists.
-3. **Recommendation narrative generation** — this is the one place the two-stage design matters most: [`WeakTopicDetectionService`](apps/api/src/modules/recommendations/weak-topic-detection.service.ts) is 100% deterministic rule-based logic (mastery thresholds, minimum attempt counts, severity ranking — see below) with zero AI involved, fully unit-testable without mocking anything. Only the *narrative and study-order explanation* layer calls the AI, and it's explicitly instructed to explain/order the already-ranked candidates it's given, never to invent new topics or re-rank by its own judgment. If the AI call fails or `ANTHROPIC_API_KEY` isn't configured, [`RecommendationService`](apps/api/src/modules/recommendations/recommendation.service.ts) falls back to a deterministic templated sentence instead of failing the pipeline.
+3. **Recommendation narrative generation** — this is the one place the two-stage design matters most: [`WeakTopicDetectionService`](apps/api/src/modules/recommendations/weak-topic-detection.service.ts) is 100% deterministic rule-based logic (mastery thresholds, minimum attempt counts, severity ranking — see below) with zero AI involved, fully unit-testable without mocking anything. Only the *narrative and study-order explanation* layer calls the AI, and it's explicitly instructed to explain/order the already-ranked candidates it's given, never to invent new topics or re-rank by its own judgment. If the AI call fails or `GOOGLE_API_KEY` isn't configured, [`RecommendationService`](apps/api/src/modules/recommendations/recommendation.service.ts) falls back to a deterministic templated sentence instead of failing the pipeline.
 4. **Study assistant** — a chat endpoint grounded in the *student's own* data: their current topic mastery, active weak topics, and a couple of relevant lesson excerpts, injected as context. It's instructed to answer only from that context plus general tutoring reasoning, and to say plainly "I don't have that in your course material yet" rather than hallucinate — this is what "constrained to available educational content" means in practice here.
 
 Knowledge-gap detection walkthrough (the exact example from the product spec; [`prisma/seed.ts`](apps/api/prisma/seed.ts) seeds this same five-topic taxonomy, course, and quiz, so taking the quiz a few times as the seeded student and deliberately missing the transactions/normalization questions reproduces this scenario):
@@ -234,7 +237,7 @@ Indexing                69%
 
 Rule: a topic needs ≥3 attempts before it's evaluated at all (avoids flagging on one unlucky question); `masteryScore < 50` is a primary weakness (triggers the async recommendation pipeline); `50–70` is a secondary "watch" zone (visible on `/recommendations`, but doesn't spam a notification); `≥ 70` resolves any existing flag. Active weak topics are ranked by `severity = 100 - masteryScore`, descending — Transactions (62 severity) outranks Normalization (59 severity) in the example above.
 
-If `ANTHROPIC_API_KEY` is unset, every `/ai/*` endpoint that calls the model returns a `503` (`AiUnavailableException`) instead of crashing the process — the rest of the platform (auth, courses, quizzes, scoring, progress, rule-based weak-topic detection) works fully without an API key.
+If `GOOGLE_API_KEY` is unset, every `/ai/*` endpoint that calls the model returns a `503` (`AiUnavailableException`) instead of crashing the process — the rest of the platform (auth, courses, quizzes, scoring, progress, rule-based weak-topic detection) works fully without an API key.
 
 ## Event-Driven Architecture
 
@@ -279,7 +282,8 @@ npm install
 cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env
 # edit apps/api/.env: point DATABASE_URL / RABBITMQ_URL at your local instances,
-# set JWT_ACCESS_SECRET / JWT_REFRESH_SECRET, and optionally ANTHROPIC_API_KEY
+# set JWT_ACCESS_SECRET / JWT_REFRESH_SECRET, and optionally GOOGLE_API_KEY
+# (free at aistudio.google.com - no card required)
 
 npm run build -w @learnai/shared
 npm run prisma:generate -w apps/api
@@ -310,12 +314,12 @@ Brings up `postgres`, `rabbitmq` (management UI at `http://localhost:15672`, use
 docker compose exec api npx prisma db seed
 ```
 
-Set `ANTHROPIC_API_KEY` in your shell (or a root `.env` picked up by Compose) before `up` if you want the AI endpoints to work; otherwise the app runs fine with AI endpoints returning `503`.
+Set `GOOGLE_API_KEY` in your shell (or a root `.env` picked up by Compose) before `up` if you want the AI endpoints to work; otherwise the app runs fine with AI endpoints returning `503`.
 
 ## Testing
 
 ```bash
-npm run test:api            # Jest: 144 tests / 16 suites, run against a mocked Prisma client
+npm run test:api            # Jest: 158 tests / 17 suites, run against a mocked Prisma client
 npm run test:cov -w apps/api  # same, with coverage
 ```
 

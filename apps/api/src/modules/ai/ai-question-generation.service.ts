@@ -60,7 +60,7 @@ export class AiQuestionGenerationService {
       groundingContent: groundingContent.length > 0 ? groundingContent : undefined,
     });
 
-    const sourceModel = this.configService.get<string>('AI_MODEL_ID') ?? 'claude-opus-5';
+    const sourceModel = this.configService.get<string>('AI_MODEL_ID') ?? 'gemini-1.5-flash';
 
     const drafts = await Promise.all(
       generated.map((question) =>

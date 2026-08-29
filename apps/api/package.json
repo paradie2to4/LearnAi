@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
+    "@google/generative-ai": "^0.21.0",
     "@golevelup/nestjs-rabbitmq": "^5.5.0",
     "@nestjs/common": "^10.4.6",
     "@nestjs/config": "^3.3.0",

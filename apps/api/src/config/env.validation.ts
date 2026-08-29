@@ -18,8 +18,13 @@ export const envSchema = z.object({
 
   RABBITMQ_URL: z.string().default('amqp://localhost:5672'),
 
+  // GOOGLE_API_KEY backs the default AI_PROVIDER binding (GeminiProvider, free tier).
+  // ANTHROPIC_API_KEY is only read if ai.module.ts's binding is switched to
+  // AnthropicProvider - kept optional here so either provider can be configured
+  // without touching this schema.
+  GOOGLE_API_KEY: z.string().optional().default(''),
   ANTHROPIC_API_KEY: z.string().optional().default(''),
-  AI_MODEL_ID: z.string().default('claude-opus-5'),
+  AI_MODEL_ID: z.string().default('gemini-1.5-flash'),
 
   THROTTLE_TTL: z.coerce.number().default(60),
   THROTTLE_LIMIT: z.coerce.number().default(100),

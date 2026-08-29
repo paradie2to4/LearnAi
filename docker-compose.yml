@@ -65,8 +65,9 @@ services:
       JWT_REFRESH_SECRET: change-me-refresh-secret
       JWT_REFRESH_EXPIRES_IN: 7d
       RABBITMQ_URL: amqp://learnai:learnai@rabbitmq:5672
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      AI_MODEL_ID: ${AI_MODEL_ID:-gemini-1.5-flash}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      AI_MODEL_ID: ${AI_MODEL_ID:-claude-opus-5}
       THROTTLE_TTL: 60
       THROTTLE_LIMIT: 100
     ports:
