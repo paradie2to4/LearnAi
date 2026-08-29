@@ -35,13 +35,12 @@ export default function AdminPage() {
   const [statsError, setStatsError] = useState<string | null>(null);
 
   const [subjects, setSubjects] = useState<SubjectDto[] | null>(null);
-  const [topicsBySubject, setTopicsBySubject] = useState<Record<string, TopicDto[]>>({});
+  const [allTopics, setAllTopics] = useState<TopicDto[] | null>(null);
   const [newSubjectName, setNewSubjectName] = useState('');
   const [isCreatingSubject, setIsCreatingSubject] = useState(false);
   const [taxonomyError, setTaxonomyError] = useState<string | null>(null);
   const [newTopicNameBySubject, setNewTopicNameBySubject] = useState<Record<string, string>>({});
   const [creatingTopicFor, setCreatingTopicFor] = useState<string | null>(null);
-  const [expandedSubjectId, setExpandedSubjectId] = useState<string | null>(null);
 
   const loadUsers = useCallback(() => {
     setUsersLoading(true);
@@ -70,11 +69,19 @@ export default function AdminPage() {
       .catch(() => setSubjects([]));
   }, []);
 
+  const loadTopics = useCallback(() => {
+    api
+      .get<TopicDto[]>('/topics')
+      .then(setAllTopics)
+      .catch(() => setAllTopics([]));
+  }, []);
+
   useEffect(() => {
     loadUsers();
     loadStats();
     loadSubjects();
-  }, [loadUsers, loadStats, loadSubjects]);
+    loadTopics();
+  }, [loadUsers, loadStats, loadSubjects, loadTopics]);
 
   async function handleCreateSubject() {
     if (!newSubjectName.trim()) return;
@@ -91,17 +98,6 @@ export default function AdminPage() {
     }
   }
 
-  function toggleSubjectExpanded(subjectId: string) {
-    const next = expandedSubjectId === subjectId ? null : subjectId;
-    setExpandedSubjectId(next);
-    if (next && !topicsBySubject[next]) {
-      api
-        .get<TopicDto[]>(`/topics?subjectId=${next}`)
-        .then((topics) => setTopicsBySubject((prev) => ({ ...prev, [next]: topics })))
-        .catch(() => setTopicsBySubject((prev) => ({ ...prev, [next]: [] })));
-    }
-  }
-
   async function handleCreateTopic(subjectId: string) {
     const name = (newTopicNameBySubject[subjectId] ?? '').trim();
     if (!name) return;
@@ -109,7 +105,7 @@ export default function AdminPage() {
     setTaxonomyError(null);
     try {
       const created = await api.post<TopicDto>('/topics', { name, subjectId });
-      setTopicsBySubject((prev) => ({ ...prev, [subjectId]: [...(prev[subjectId] ?? []), created] }));
+      setAllTopics((prev) => [...(prev ?? []), created]);
       setNewTopicNameBySubject((prev) => ({ ...prev, [subjectId]: '' }));
     } catch (err) {
       setTaxonomyError(err instanceof ApiError ? err.message : 'Failed to create topic.');
@@ -179,9 +175,24 @@ export default function AdminPage() {
         <h2 id="taxonomy-heading" className="mb-3 text-lg font-semibold text-slate-900">
           Subjects &amp; topics
         </h2>
-        <p className="mb-3 text-sm text-slate-500">
-          Courses require a subject, and questions require a topic — manage the shared taxonomy here.
-        </p>
+        <div className="mb-4 rounded-lg bg-brand-50 p-3 text-sm text-brand-900 ring-1 ring-inset ring-brand-200">
+          <p className="font-medium">How this fits together:</p>
+          <ul className="mt-1.5 list-disc space-y-1 pl-5">
+            <li>
+              A <strong>Subject</strong> is the broad category a course belongs to (e.g. &ldquo;Computer
+              Science&rdquo;). Every course needs one, chosen when it&apos;s created.
+            </li>
+            <li>
+              A <strong>Topic</strong> lives inside a subject and is the specific thing a single quiz question
+              tests (e.g. &ldquo;Normalization&rdquo; inside Computer Science). Every question needs one — that
+              tagging is what powers per-topic mastery scores and knowledge-gap detection for students.
+            </li>
+            <li>
+              Add subjects and topics below, then they&apos;ll show up as dropdown choices when an instructor
+              creates a course (picks a subject) or adds a question to a quiz (picks a topic).
+            </li>
+          </ul>
+        </div>
         <Card>
           <div className="flex gap-2">
             <label htmlFor="new-subject" className="sr-only">
@@ -200,73 +211,63 @@ export default function AdminPage() {
           </div>
           {taxonomyError && <p className="mt-2 text-xs text-red-700">{taxonomyError}</p>}
 
-          {subjects === null ? (
+          {subjects === null || allTopics === null ? (
             <div className="mt-4 space-y-2">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-20 w-full" />
             </div>
           ) : subjects.length === 0 ? (
             <p className="mt-4 text-sm text-slate-500">No subjects yet — add the first one above.</p>
           ) : (
             <ul className="mt-4 divide-y divide-slate-100">
               {subjects.map((subject) => {
-                const isExpanded = expandedSubjectId === subject.id;
-                const topics = topicsBySubject[subject.id];
+                const topics = allTopics.filter((t) => t.subjectId === subject.id);
                 return (
                   <li key={subject.id} className="py-3">
-                    <button
-                      type="button"
-                      onClick={() => toggleSubjectExpanded(subject.id)}
-                      aria-expanded={isExpanded}
-                      className="focus-ring flex w-full items-center justify-between rounded-md py-1 text-left"
-                    >
+                    <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-slate-800">{subject.name}</span>
-                      <span aria-hidden="true" className="text-xs text-slate-400">
-                        {isExpanded ? '▲' : '▼'}
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">
+                        {topics.length} topic{topics.length === 1 ? '' : 's'}
                       </span>
-                    </button>
-                    {isExpanded && (
-                      <div className="mt-2 space-y-2 rounded-lg bg-slate-50 p-3">
-                        {!topics ? (
-                          <Skeleton className="h-6 w-full" />
-                        ) : topics.length === 0 ? (
-                          <p className="text-xs text-slate-500">No topics yet for this subject.</p>
-                        ) : (
-                          <ul className="flex flex-wrap gap-1.5">
-                            {topics.map((topic) => (
-                              <li
-                                key={topic.id}
-                                className="rounded-full bg-white px-2.5 py-0.5 text-xs text-slate-700 ring-1 ring-inset ring-slate-200"
-                              >
-                                {topic.name}
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                        <div className="flex gap-2">
-                          <label htmlFor={`new-topic-${subject.id}`} className="sr-only">
-                            New topic name
-                          </label>
-                          <input
-                            id={`new-topic-${subject.id}`}
-                            value={newTopicNameBySubject[subject.id] ?? ''}
-                            onChange={(e) =>
-                              setNewTopicNameBySubject((prev) => ({ ...prev, [subject.id]: e.target.value }))
-                            }
-                            placeholder="e.g. Normalization"
-                            className="focus-ring w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs shadow-soft transition"
-                          />
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            isLoading={creatingTopicFor === subject.id}
-                            onClick={() => handleCreateTopic(subject.id)}
-                          >
-                            Add topic
-                          </Button>
-                        </div>
+                    </div>
+                    <div className="mt-2 space-y-2 rounded-lg bg-slate-50 p-3">
+                      {topics.length === 0 ? (
+                        <p className="text-xs text-slate-500">No topics yet for this subject — add one below.</p>
+                      ) : (
+                        <ul className="flex flex-wrap gap-1.5">
+                          {topics.map((topic) => (
+                            <li
+                              key={topic.id}
+                              className="rounded-full bg-white px-2.5 py-0.5 text-xs text-slate-700 ring-1 ring-inset ring-slate-200"
+                            >
+                              {topic.name}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      <div className="flex gap-2">
+                        <label htmlFor={`new-topic-${subject.id}`} className="sr-only">
+                          New topic name for {subject.name}
+                        </label>
+                        <input
+                          id={`new-topic-${subject.id}`}
+                          value={newTopicNameBySubject[subject.id] ?? ''}
+                          onChange={(e) =>
+                            setNewTopicNameBySubject((prev) => ({ ...prev, [subject.id]: e.target.value }))
+                          }
+                          placeholder="e.g. Normalization"
+                          className="focus-ring w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs shadow-soft transition"
+                        />
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          isLoading={creatingTopicFor === subject.id}
+                          onClick={() => handleCreateTopic(subject.id)}
+                        >
+                          Add topic
+                        </Button>
                       </div>
-                    )}
+                    </div>
                   </li>
                 );
               })}

@@ -3,7 +3,7 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import type { QuestionDto, QuizDto, TopicDto } from '@learnai/shared';
+import type { QuestionDto, QuizDto, SubjectDto, TopicDto } from '@learnai/shared';
 import { QuestionType } from '@learnai/shared';
 import { api, ApiError } from '../../../../../../../lib/api-client';
 import { AppShell } from '../../../../../../../components/app-shell';
@@ -75,52 +75,141 @@ function QuestionCard({ question, onDeleted }: { question: QuestionDto; onDelete
 function TopicSelect({
   id,
   topics,
+  subjects,
   value,
   onChange,
+  onTopicCreated,
 }: {
   id: string;
   topics: TopicDto[] | null;
+  subjects: SubjectDto[] | null;
   value: string;
   onChange: (topicId: string) => void;
+  onTopicCreated: (topic: TopicDto) => void;
 }) {
+  const [showCreate, setShowCreate] = useState(false);
+  const [newTopicName, setNewTopicName] = useState('');
+  const [newTopicSubjectId, setNewTopicSubjectId] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleCreateTopic() {
+    if (!newTopicName.trim() || !newTopicSubjectId) return;
+    setIsCreating(true);
+    setError(null);
+    try {
+      const created = await api.post<TopicDto>('/topics', {
+        name: newTopicName.trim(),
+        subjectId: newTopicSubjectId,
+      });
+      onTopicCreated(created);
+      onChange(created.id);
+      setNewTopicName('');
+      setShowCreate(false);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Failed to create topic.');
+    } finally {
+      setIsCreating(false);
+    }
+  }
+
   if (topics === null) {
     return <Skeleton className="mt-1 h-9 w-full" />;
   }
-  if (topics.length === 0) {
-    return (
-      <p className="mt-1 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 ring-1 ring-inset ring-amber-200">
-        No topics exist yet — create one from the Admin page&apos;s Subjects &amp; topics panel first.
-      </p>
-    );
-  }
+
   return (
-    <select
-      id={id}
-      required
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="focus-ring mt-1 w-full rounded-lg border border-slate-300 bg-white shadow-soft transition px-3 py-2 text-sm"
-    >
-      <option value="" disabled>
-        Select a topic…
-      </option>
-      {topics.map((topic) => (
-        <option key={topic.id} value={topic.id}>
-          {topic.name}
-        </option>
-      ))}
-    </select>
+    <div className="mt-1 space-y-2">
+      {topics.length === 0 ? (
+        <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 ring-1 ring-inset ring-amber-200">
+          No topics exist yet — create one below (a topic tags what a question tests, e.g. &ldquo;Loops&rdquo;
+          inside &ldquo;Fundamentals of Programming&rdquo;).
+        </p>
+      ) : (
+        <select
+          id={id}
+          required
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="focus-ring w-full rounded-lg border border-slate-300 bg-white shadow-soft transition px-3 py-2 text-sm"
+        >
+          <option value="" disabled>
+            Select a topic…
+          </option>
+          {topics.map((topic) => (
+            <option key={topic.id} value={topic.id}>
+              {topic.name}
+            </option>
+          ))}
+        </select>
+      )}
+
+      {!showCreate ? (
+        <button
+          type="button"
+          onClick={() => setShowCreate(true)}
+          className="focus-ring rounded-md text-xs font-medium text-brand-600 hover:underline"
+        >
+          + New topic
+        </button>
+      ) : (
+        <div className="space-y-2 rounded-lg bg-slate-50 p-2.5">
+          <div className="flex gap-2">
+            <label htmlFor={`${id}-new-subject`} className="sr-only">
+              Subject for new topic
+            </label>
+            <select
+              id={`${id}-new-subject`}
+              value={newTopicSubjectId}
+              onChange={(e) => setNewTopicSubjectId(e.target.value)}
+              className="focus-ring w-1/2 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs shadow-soft transition"
+            >
+              <option value="" disabled>
+                Subject…
+              </option>
+              {(subjects ?? []).map((subject) => (
+                <option key={subject.id} value={subject.id}>
+                  {subject.name}
+                </option>
+              ))}
+            </select>
+            <label htmlFor={`${id}-new-name`} className="sr-only">
+              New topic name
+            </label>
+            <input
+              id={`${id}-new-name`}
+              value={newTopicName}
+              onChange={(e) => setNewTopicName(e.target.value)}
+              placeholder="e.g. Loops"
+              className="focus-ring w-1/2 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs shadow-soft transition"
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" variant="secondary" isLoading={isCreating} onClick={handleCreateTopic}>
+              Create topic
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setShowCreate(false)}>
+              Cancel
+            </Button>
+          </div>
+          {error && <p className="text-xs text-red-700">{error}</p>}
+        </div>
+      )}
+    </div>
   );
 }
 
 function AddQuestionForm({
   quizId,
   topics,
+  subjects,
   onCreated,
+  onTopicCreated,
 }: {
   quizId: string;
   topics: TopicDto[] | null;
+  subjects: SubjectDto[] | null;
   onCreated: (q: QuestionDto) => void;
+  onTopicCreated: (topic: TopicDto) => void;
 }) {
   const [type, setType] = useState<QuestionType>(QuestionType.MULTIPLE_CHOICE);
   const [prompt, setPrompt] = useState('');
@@ -264,7 +353,14 @@ function AddQuestionForm({
             <label htmlFor="q-topic" className="block text-sm font-medium text-slate-700">
               Topic
             </label>
-            <TopicSelect id="q-topic" topics={topics} value={topicId} onChange={setTopicId} />
+            <TopicSelect
+              id="q-topic"
+              topics={topics}
+              subjects={subjects}
+              value={topicId}
+              onChange={setTopicId}
+              onTopicCreated={onTopicCreated}
+            />
           </div>
         </div>
 
@@ -373,7 +469,17 @@ function AddQuestionForm({
   );
 }
 
-function AiGenerateForm({ quizId, topics }: { quizId: string; topics: TopicDto[] | null }) {
+function AiGenerateForm({
+  quizId,
+  topics,
+  subjects,
+  onTopicCreated,
+}: {
+  quizId: string;
+  topics: TopicDto[] | null;
+  subjects: SubjectDto[] | null;
+  onTopicCreated: (topic: TopicDto) => void;
+}) {
   const [topicId, setTopicId] = useState('');
   const [count, setCount] = useState('3');
   const [difficulty, setDifficulty] = useState<'EASY' | 'MEDIUM' | 'HARD'>('MEDIUM');
@@ -410,7 +516,14 @@ function AiGenerateForm({ quizId, topics }: { quizId: string; topics: TopicDto[]
           <label htmlFor="ai-topic" className="block text-sm font-medium text-slate-700">
             Topic
           </label>
-          <TopicSelect id="ai-topic" topics={topics} value={topicId} onChange={setTopicId} />
+          <TopicSelect
+            id="ai-topic"
+            topics={topics}
+            subjects={subjects}
+            value={topicId}
+            onChange={setTopicId}
+            onTopicCreated={onTopicCreated}
+          />
         </div>
         <div>
           <label htmlFor="ai-count" className="block text-sm font-medium text-slate-700">
@@ -473,6 +586,7 @@ export default function EditQuizPage() {
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [topics, setTopics] = useState<TopicDto[] | null>(null);
+  const [subjects, setSubjects] = useState<SubjectDto[] | null>(null);
 
   const load = useCallback(() => {
     setIsLoading(true);
@@ -493,7 +607,15 @@ export default function EditQuizPage() {
       .get<TopicDto[]>('/topics')
       .then(setTopics)
       .catch(() => setTopics([]));
+    api
+      .get<SubjectDto[]>('/subjects')
+      .then(setSubjects)
+      .catch(() => setSubjects([]));
   }, []);
+
+  function handleTopicCreated(topic: TopicDto) {
+    setTopics((prev) => [...(prev ?? []), topic]);
+  }
 
   async function handlePublish() {
     setIsPublishing(true);
@@ -554,7 +676,13 @@ export default function EditQuizPage() {
               ))}
             </div>
             <div className="mt-4">
-              <AddQuestionForm quizId={quizId} topics={topics} onCreated={handleQuestionCreated} />
+              <AddQuestionForm
+                quizId={quizId}
+                topics={topics}
+                subjects={subjects}
+                onCreated={handleQuestionCreated}
+                onTopicCreated={handleTopicCreated}
+              />
             </div>
           </section>
 
@@ -562,7 +690,7 @@ export default function EditQuizPage() {
             <h2 id="ai-generate-heading" className="mb-3 text-lg font-semibold text-slate-900">
               AI question generation
             </h2>
-            <AiGenerateForm quizId={quizId} topics={topics} />
+            <AiGenerateForm quizId={quizId} topics={topics} subjects={subjects} onTopicCreated={handleTopicCreated} />
           </section>
         </div>
       )}
