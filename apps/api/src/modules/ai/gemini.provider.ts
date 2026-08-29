@@ -226,17 +226,19 @@ export class GeminiProvider implements AiProvider {
       input.contextSummary,
     ].join('\n');
 
-    const client = this.getClient();
-    const genModel = client.getGenerativeModel({ model: this.model, systemInstruction: system });
-    const chat = genModel.startChat({
-      history: input.history.map((m) => ({
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: m.content }],
-      })),
-    });
+    return this.runGemini('answerStudyAssistantQuestion', async () => {
+      const client = this.getClient();
+      const genModel = client.getGenerativeModel({ model: this.model, systemInstruction: system });
+      const chat = genModel.startChat({
+        history: input.history.map((m) => ({
+          role: m.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: m.content }],
+        })),
+      });
 
-    const result = await chat.sendMessage(input.question);
-    return result.response.text().trim();
+      const result = await chat.sendMessage(input.question);
+      return result.response.text().trim();
+    });
   }
 
   private getClient(): GoogleGenerativeAI {
@@ -247,10 +249,30 @@ export class GeminiProvider implements AiProvider {
   }
 
   private async generate(systemInstruction: string, userMessage: string): Promise<string> {
-    const client = this.getClient();
-    const genModel = client.getGenerativeModel({ model: this.model, systemInstruction });
-    const result = await genModel.generateContent(userMessage);
-    return result.response.text();
+    return this.runGemini('generate', async () => {
+      const client = this.getClient();
+      const genModel = client.getGenerativeModel({ model: this.model, systemInstruction });
+      const result = await genModel.generateContent(userMessage);
+      return result.response.text();
+    });
+  }
+
+  /**
+   * Every real network call to the Gemini API goes through here so failures are
+   * always logged with enough detail to diagnose from server logs (wrong/expired
+   * API key, invalid/deprecated model id, quota exceeded, network error, etc.)
+   * instead of surfacing as an opaque 500 with no trace of the actual cause.
+   */
+  private async runGemini<T>(context: string, fn: () => Promise<T>): Promise<T> {
+    try {
+      return await fn();
+    } catch (error) {
+      const err = error as { message?: string; status?: number; statusText?: string };
+      this.logger.error(
+        `${context}: Gemini API call failed (model="${this.model}"): ${err.status ?? ''} ${err.statusText ?? ''} ${err.message ?? String(error)}`,
+      );
+      throw new Error(`AI provider request failed during ${context}: ${err.message ?? 'unknown error'}`);
+    }
   }
 
   /** Defensively strips a markdown code fence if the model added one despite instructions not to. */

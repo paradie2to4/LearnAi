@@ -169,6 +169,34 @@ describe('GeminiProvider', () => {
       expect(result).toBe('Here is why the answer is correct.');
     });
 
+    it('wraps a raw SDK failure (e.g. invalid API key, bad model id) in a clear diagnosable error instead of an opaque crash', async () => {
+      mockGenerateContent.mockRejectedValue(
+        Object.assign(new Error('API key not valid'), { status: 400, statusText: 'Bad Request' }),
+      );
+
+      await expect(
+        provider.explainIncorrectAnswer({
+          questionPrompt: 'q',
+          options: [{ text: 'a', isCorrect: true }],
+          selectedAnswerText: 'b',
+          correctAnswerText: 'a',
+        }),
+      ).rejects.toThrow(/AI provider request failed during generate/);
+    });
+
+    it('wraps a chat-session failure from answerStudyAssistantQuestion the same way', async () => {
+      mockSendMessage.mockRejectedValue(new Error('quota exceeded'));
+
+      await expect(
+        provider.answerStudyAssistantQuestion({
+          studentFirstName: 'Ada',
+          contextSummary: '',
+          history: [],
+          question: 'hi',
+        }),
+      ).rejects.toThrow(/AI provider request failed during answerStudyAssistantQuestion/);
+    });
+
     it('answerStudyAssistantQuestion uses a chat session seeded with history', async () => {
       mockSendMessage.mockResolvedValue(textResult('Here is the answer.'));
 
